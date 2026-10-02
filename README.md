@@ -43,8 +43,28 @@ Reviews are stored in a Google Form + Sheet:
 Until this is done, the review form opens the visitor's email app instead and
 the site shows "Be the first to leave a review".
 
-Quote requests work the same way: they open an email to the business address
-unless a Google Form is filled in under `quote` in `js/config.js`.
+## Connecting the quote form (one-time setup)
+
+Quote requests are emailed to the address in the sheet's Email column by a small
+Google Apps Script attached to the sheet. The address is read on Google's side,
+so it never appears on the website. Do this while signed in as the Google
+account that owns the sheet; the emails are sent from that account.
+
+1. Open the back-end Google Sheet and choose Extensions › Apps Script.
+2. Delete whatever is in the editor, paste in all of `tools/quote-email.gs`, and
+   save.
+3. Click Deploy › New deployment. Choose type **Web app**, set "Execute as" to
+   **Me** and "Who has access" to **Anyone**, then Deploy.
+4. Approve the permissions Google asks for (reading the sheet and sending email
+   as you).
+5. Copy the web app URL (it ends in `/exec`) into `quote.endpoint` in
+   `js/config.js`.
+
+Changing the email later only means editing the sheet. If the script itself is
+ever edited, use Deploy › Manage deployments › Edit › New version so the same
+URL keeps working. Google allows about 100 emails a day on a free account.
+
+Until this is done, the quote form opens the visitor's email app instead.
 
 ## Files
 
@@ -53,6 +73,9 @@ unless a Google Form is filled in under `quote` in `js/config.js`.
 - `css/styles.css` — all styling (colors are defined at the top)
 - `js/config.js` — sheet link and form settings
 - `js/site.js` — loads the sheet and builds the header, footer and lists
+- `tools/quote-email.gs` — the Apps Script that emails quote requests (runs in
+  Google, not on the site)
+- `tools/serve.js` — local preview server
 
 ## Previewing locally
 

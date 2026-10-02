@@ -323,11 +323,14 @@
       el.innerHTML = '<option value="">Select…</option>' + items.map((v) => `<option>${esc(v)}</option>`).join('');
       el.value = keep;
     });
-    fill('select[name="service"]', [...data.services, 'Not sure yet']);
+    // Non-toxic applies to every clean and recurring is covered by "How often?",
+    // so neither is offered as a choice on the quote form.
+    const quotable = data.services.filter((s) => !/non.?toxic|recurr/i.test(s));
+    fill('select[name="service"]', [...quotable, 'Not sure yet']);
     fill('select[name="area"]', [...data.areas, 'Somewhere else']);
     const wanted = new URLSearchParams(location.search).get('service');
     const serviceSelect = $('select[name="service"]');
-    if (wanted && serviceSelect && !serviceSelect.value && data.services.includes(wanted)) serviceSelect.value = wanted;
+    if (wanted && serviceSelect && !serviceSelect.value && quotable.includes(wanted)) serviceSelect.value = wanted;
   }
 
   function renderReviews() {
@@ -409,9 +412,15 @@
 
   /* ---------- forms ---------- */
 
-  // Sends to the connected Google Form, or opens an email draft if none is set up.
+  // Sends to the connected Apps Script or Google Form, or opens an email draft if none is set up.
   async function send(kind, values, mail) {
     const target = CFG[kind] || {};
+    if (target.endpoint) {
+      const res = await fetch(target.endpoint, { method: 'POST', body: new URLSearchParams(values) });
+      const result = await res.json();
+      if (!result.ok) throw new Error(result.error || 'Request was not accepted');
+      return 'sent';
+    }
     if (target.formAction) {
       const body = new URLSearchParams();
       for (const [key, value] of Object.entries(values)) {
@@ -434,16 +443,21 @@
       if (!form.reportValidity()) return;
       const values = Object.fromEntries(new FormData(form).entries());
       const button = $('button[type="submit"]', form);
+      const label = button.textContent;
       button.disabled = true;
+      button.textContent = 'Sending…';
+      status.textContent = '';
       try {
         const how = await send(kind, values, toMail(values));
         status.className = 'form__status is-ok';
         status.textContent = how === 'sent' ? messages.sent : `${messages.email} If it doesn’t open, please call ${data.phone}.`;
         if (how === 'sent') form.reset();
       } catch (err) {
+        console.warn('Form could not be sent.', err);
         status.className = 'form__status is-error';
         status.textContent = `Sorry, that didn’t go through. Please call ${data.phone}.`;
       }
+      button.textContent = label;
       button.disabled = false;
     });
   }

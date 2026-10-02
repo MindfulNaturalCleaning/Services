@@ -26,6 +26,8 @@
     <section class="section section--mint">
       <div class="wrap form-layout">
         <form class="form leaf" id="quote-form">
+          <!-- Spam trap: hidden from people, left empty by real visitors. -->
+          <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" hidden>
           <div class="form__grid">
             <label>Name
               <input type="text" name="name" required maxlength="80" autocomplete="name">

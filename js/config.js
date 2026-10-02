@@ -3,7 +3,7 @@
 window.SITE_CONFIG = {
   // The published "back end" sheet (File > Share > Publish to web > CSV).
   sheetCsvUrl:
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQj2C_AvPYBcZjMU0o4yoIccHyMTUqoIMslK5Cwl8TtwXfpYe8JI0WX1lgSvanVDfJIdgSfLUKyzNUu/pub?gid=0&single=true&output=csv',
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vT88jI1ymPw3X0sIAZA9FPd5xQ6vaMY1aJcawhDdgXzDKcESAQ7-PvZ1atSjfLmMcZlwohjqH12cdcK/pub?gid=0&single=true&output=csv',
 
   // Reviews. Until a Google Form is connected, the review form opens the
   // visitor's email app instead and no reviews are displayed. See README.md.
@@ -13,10 +13,10 @@ window.SITE_CONFIG = {
     fields: { name: '', rating: '', review: '' } // e.g. name: 'entry.123456789'
   },
 
-  // Quote requests. Leave blank to send them by email; fill in to collect
-  // them in a Google Form/Sheet the same way as reviews.
+  // Quote requests. `endpoint` is the web app URL of the Apps Script in
+  // tools/quote-email.gs, which emails each request to the address in the sheet.
+  // While blank, the quote form opens the visitor's email app instead. See README.md.
   quote: {
-    formAction: '',
-    fields: { name: '', phone: '', email: '', area: '', service: '', property: '', frequency: '', details: '' }
+    endpoint: 'https://script.google.com/macros/s/AKfycbythYoQLQR1Y3ciYT0A73iId90ACnqaDtt2-naT41OKWl0li8tCBspt9rbF9KvhK1OIjQ/exec'
   }
 };
