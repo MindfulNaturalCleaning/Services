@@ -1,0 +1,7 @@
+{
+  "name": "mindful-natural-cleaning-site",
+  "private": true,
+  "scripts": {
+    "dev": "node tools/serve.js"
+  }
+}

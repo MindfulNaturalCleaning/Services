@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reviews | Mindful Natural Cleaning Service</title>
+  <meta name="description" content="Read customer reviews of Mindful Natural Cleaning Service, or leave your own.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <section class="page-hero" data-bg="1">
+      <div class="wrap">
+        <p class="crumbs"><a href="index.html">Home</a> › Reviews</p>
+        <h1>Customer reviews</h1>
+        <p>Hear from the people we’ve cleaned for, and tell us how we did.</p>
+      </div>
+    </section>
+
+    <section class="section section--white">
+      <div class="wrap">
+        <div class="section__head center">
+          <div class="rating" data-review-summary hidden style="justify-content:center"></div>
+        </div>
+        <div class="reviews" data-reviews></div>
+      </div>
+    </section>
+
+    <section class="section section--mint" id="leave-a-review">
+      <div class="wrap form-layout">
+        <form class="form leaf" id="review-form">
+          <p class="eyebrow">Share your experience</p>
+          <h2>Leave a review</h2>
+          <div class="form__grid">
+            <label class="form__full">Your name
+              <input type="text" name="name" required maxlength="80" autocomplete="name">
+            </label>
+            <fieldset class="form__full">
+              <legend>Your rating</legend>
+              <div class="star-input">
+                <input type="radio" name="rating" id="star5" value="5" required><label for="star5" title="5 stars" aria-label="5 stars">★</label>
+                <input type="radio" name="rating" id="star4" value="4"><label for="star4" title="4 stars" aria-label="4 stars">★</label>
+                <input type="radio" name="rating" id="star3" value="3"><label for="star3" title="3 stars" aria-label="3 stars">★</label>
+                <input type="radio" name="rating" id="star2" value="2"><label for="star2" title="2 stars" aria-label="2 stars">★</label>
+                <input type="radio" name="rating" id="star1" value="1"><label for="star1" title="1 star" aria-label="1 star">★</label>
+              </div>
+            </fieldset>
+            <label class="form__full">Your review
+              <textarea name="review" required maxlength="1500" placeholder="Tell us about your experience"></textarea>
+            </label>
+          </div>
+          <div class="form__actions">
+            <button class="btn btn--primary" type="submit">Submit review</button>
+            <p class="form__status" role="status"></p>
+          </div>
+        </form>
+
+        <aside class="aside leaf">
+          <h2>Thank you for your feedback</h2>
+          <p>Reviews help our neighbors find a cleaning service they can trust, and they help us keep getting better.</p>
+          <h3>Something not right?</h3>
+          <p>Please let us know directly so we can make it right.</p>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><a data-phone-link href="tel:+12259074510" data-bind="phone">(225)907-4510</a></li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+  <script src="js/config.js"></script>
+  <script src="js/site.js"></script>
+</body>
+</html>
