@@ -466,7 +466,7 @@
       subject: `Review from ${v.name}`,
       body: `Name: ${v.name}\nRating: ${v.rating} out of 5\n\n${v.review}`
     }), {
-      sent: 'Thank you for your review! It will appear here once it has been approved.',
+      sent: 'Thank you for your review!',
       email: 'Your email app should open with your review ready to send.'
     });
   }
