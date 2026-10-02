@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Manager | Mindful Natural Cleaning Service</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="favicon.svg">
+  <meta name="theme-color" content="#12332a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="mgr">
+  <header class="mgr-bar">
+    <div class="wrap mgr-bar__in">
+      <div class="mgr-bar__brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+        <div>
+          <strong data-business>Mindful Natural Cleaning</strong>
+          <span>Manager</span>
+        </div>
+      </div>
+      <div class="mgr-bar__actions" id="bar-actions" hidden>
+        <button class="mgr-icon" type="button" id="refresh" aria-label="Refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+        <button class="mgr-icon" type="button" id="lock" aria-label="Lock">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap mgr-main">
+    <section id="login" class="mgr-login leaf" hidden>
+      <h1>Manager sign in</h1>
+      <p>Enter the passcode to see quote requests.</p>
+      <form id="login-form" class="form">
+        <label>Passcode
+          <input type="password" name="passcode" required autocomplete="current-password">
+        </label>
+        <label class="mgr-check"><input type="checkbox" name="remember" checked> Keep me signed in on this device</label>
+        <div class="form__actions">
+          <button class="btn btn--primary" type="submit">Sign in</button>
+          <p class="form__status" role="status"></p>
+        </div>
+      </form>
+    </section>
+
+    <section id="app" hidden>
+      <nav class="mgr-tabs" aria-label="Requests">
+        <button type="button" data-tab="new" class="is-on">New <span data-count="new">0</span></button>
+        <button type="button" data-tab="todo">To-do <span data-count="todo">0</span></button>
+        <button type="button" data-tab="finished">Finished</button>
+      </nav>
+      <p class="mgr-note" id="note" role="status"></p>
+      <div id="list"></div>
+    </section>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/manager.js"></script>
+</body>
+</html>
