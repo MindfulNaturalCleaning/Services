@@ -37,6 +37,8 @@
         <form class="form leaf" id="review-form">
           <p class="eyebrow">Share your experience</p>
           <h2>Leave a review</h2>
+          <!-- Spam trap: hidden from people, left empty by real visitors. -->
+          <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" hidden>
           <div class="form__grid">
             <label class="form__full">Your name
               <input type="text" name="name" required maxlength="80" autocomplete="name">

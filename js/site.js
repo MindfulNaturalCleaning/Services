@@ -5,6 +5,7 @@
 
   const CFG = window.SITE_CONFIG || {};
   const CACHE_KEY = 'mncs-data-v1';
+  const REVIEWS_CACHE_KEY = 'mncs-reviews-v1';
 
   // Shown instantly, and used if the sheet can't be reached.
   const FALLBACK = {
@@ -382,29 +383,24 @@
     }
   }
 
+  // The script only hands over reviews whose Show box is ticked in the sheet.
   async function loadReviews() {
-    const url = CFG.reviews && CFG.reviews.csvUrl;
-    if (!url) return;
+    if (!CFG.scriptUrl) return;
     try {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const rows = parseCSV(await res.text());
-      const head = rows[0].map((h) => h.trim().toLowerCase());
-      const col = (...keys) => head.findIndex((h) => keys.some((k) => h.includes(k)));
-      const iName = col('name'), iRating = col('rating', 'star'), iText = col('review', 'comment', 'feedback', 'experience');
-      const iDate = col('timestamp', 'date'), iApproved = col('approv', 'publish', 'show');
-      reviews = rows.slice(1).map((r) => {
-        const when = iDate >= 0 ? new Date(r[iDate]) : null;
+      const res = await fetch(CFG.scriptUrl);
+      const result = await res.json();
+      if (!result.ok || !Array.isArray(result.reviews)) throw new Error('Unexpected reply');
+      const next = result.reviews.map((r) => {
+        const when = r.date ? new Date(r.date) : null;
         return {
-          name: (r[iName] || '').trim() || 'Customer',
-          rating: parseInt((r[iRating] || '').match(/\d/)?.[0] || '0', 10),
-          text: (r[iText] || '').trim(),
-          date: when && !isNaN(when) ? when.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '',
-          // With an "Approved" column in the sheet, only rows marked yes are shown.
-          approved: iApproved < 0 || /^(y|yes|true|x|✓)$/i.test((r[iApproved] || '').trim())
+          name: String(r.name || 'Customer'),
+          rating: Number(r.rating) || 0,
+          text: String(r.text || ''),
+          date: when && !isNaN(when) ? when.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : ''
         };
-      }).filter((r) => r.approved && r.text && r.rating >= 1).reverse();
-      renderReviews();
+      }).filter((r) => r.text && r.rating >= 1);
+      if (JSON.stringify(next) !== JSON.stringify(reviews)) { reviews = next; renderReviews(); }
+      try { localStorage.setItem(REVIEWS_CACHE_KEY, JSON.stringify(next)); } catch (e) { /* storage unavailable */ }
     } catch (err) {
       console.warn('Could not load reviews.', err);
     }
@@ -412,21 +408,12 @@
 
   /* ---------- forms ---------- */
 
-  // Sends to the connected Apps Script or Google Form, or opens an email draft if none is set up.
+  // Sends to the Apps Script attached to the sheet, or opens an email draft if none is set up.
   async function send(kind, values, mail) {
-    const target = CFG[kind] || {};
-    if (target.endpoint) {
-      const res = await fetch(target.endpoint, { method: 'POST', body: new URLSearchParams(values) });
+    if (CFG.scriptUrl) {
+      const res = await fetch(CFG.scriptUrl, { method: 'POST', body: new URLSearchParams({ form: kind, ...values }) });
       const result = await res.json();
       if (!result.ok) throw new Error(result.error || 'Request was not accepted');
-      return 'sent';
-    }
-    if (target.formAction) {
-      const body = new URLSearchParams();
-      for (const [key, value] of Object.entries(values)) {
-        if (target.fields[key]) body.append(target.fields[key], value);
-      }
-      await fetch(target.formAction, { method: 'POST', mode: 'no-cors', body });
       return 'sent';
     }
     if (!data.email) throw new Error('No email address loaded from the sheet');
@@ -479,7 +466,7 @@
       subject: `Review from ${v.name}`,
       body: `Name: ${v.name}\nRating: ${v.rating} out of 5\n\n${v.review}`
     }), {
-      sent: 'Thank you for your review! It will appear here shortly.',
+      sent: 'Thank you for your review! It will appear here once it has been approved.',
       email: 'Your email app should open with your review ready to send.'
     });
   }
@@ -489,6 +476,10 @@
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
     if (cached && cached.name) data = { ...FALLBACK, ...cached };
+  } catch (e) { /* no saved copy */ }
+  try {
+    const cached = JSON.parse(localStorage.getItem(REVIEWS_CACHE_KEY));
+    if (Array.isArray(cached)) reviews = cached;
   } catch (e) { /* no saved copy */ }
 
   render();
