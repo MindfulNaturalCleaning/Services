@@ -53,7 +53,9 @@ function doPost(e) {
   return reply(p.form === 'reviews' ? saveReview(p) : sendQuote(p));
 }
 
-function doGet() {
+function doGet(e) {
+  var p = (e && e.parameter) || {};
+  if (p.ics) return calendarFile(p.ics);
   return reply({ ok: true, reviews: shownReviews() });
 }
 
@@ -172,8 +174,79 @@ function managerAction(p) {
     case 'login': return { ok: true };
     case 'list': return { ok: true, requests: listRequests() };
     case 'save': return saveRequestChanges(p);
+    case 'calendar': return prepareCalendarFile(p.id, p.which);
     default: return { ok: false, error: 'Unknown action.' };
   }
+}
+
+/* ---------- calendar files ---------- */
+
+// Phones add an event to their calendar when they open a calendar (.ics) file
+// from a web address. The manager page asks for one here (passcode checked);
+// the file is kept for 10 minutes under a random one-time code, and the page
+// then opens ?ics=<code>. No customer details ever appear in the web address.
+function prepareCalendarFile(id, which) {
+  if (which !== 'inspection' && which !== 'job') return { ok: false, error: 'Unknown calendar entry.' };
+  var r = (listRequests().filter(function (x) { return x.id === String(id); }))[0];
+  if (!r) return { ok: false, error: 'That request was not found.' };
+  var when = which === 'inspection' ? r.inspectionAt : r.jobAt;
+  if (!localDate(when)) return { ok: false, error: 'Add the ' + which + ' date first.' };
+
+  var code = Utilities.getUuid().replace(/-/g, '');
+  CacheService.getScriptCache().put('ics-' + code, icsText(r, which), 600);
+  return { ok: true, code: code };
+}
+
+function calendarFile(code) {
+  var ics = CacheService.getScriptCache().get('ics-' + String(code).replace(/[^\w]/g, ''));
+  if (!ics) return ContentService.createTextOutput('This calendar link has expired. Go back to the manager page and tap the button again.');
+  return ContentService.createTextOutput(ics).setMimeType(ContentService.MimeType.ICAL);
+}
+
+// One calendar event with reminders the day before and an hour before. Times
+// are written without a time zone so the phone reads them as local time.
+function icsText(r, which) {
+  var inspection = which === 'inspection';
+  var start = localDate(inspection ? r.inspectionAt : r.jobAt);
+  var end = new Date(start.getTime() + (inspection ? 1 : Number(r.jobHours) || 2) * 3600000);
+  var title = (inspection ? 'Inspection' : 'Cleaning') + ' – ' + r.name;
+
+  var facts = [
+    'Customer: ' + r.name,
+    'Phone: ' + r.phone,
+    r.email && 'Email: ' + r.email,
+    r.service && 'Service: ' + r.service,
+    r.property && 'Type of space: ' + r.property,
+    r.frequency && 'How often: ' + r.frequency,
+    !inspection && r.quote && 'Quote: ' + r.quote
+  ].filter(Boolean).join('\n');
+  var notes = [
+    inspection ? 'Inspection visit to see the space and give a quote.' : 'Cleaning job.',
+    facts,
+    r.notes && 'Notes:\n' + r.notes,
+    !inspection && r.quoteNotes && 'Quote notes:\n' + r.quoteNotes,
+    r.message && 'Customer message:\n' + r.message
+  ].filter(Boolean).join('\n\n');
+
+  var tz = Session.getScriptTimeZone();
+  var stamp = function (d) { return Utilities.formatDate(d, tz, "yyyyMMdd'T'HHmmss"); };
+  var text = function (s) { return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); };
+  var lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mindful Natural Cleaning//Manager//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    'UID:' + r.id + '-' + which + '-' + stamp(start) + '@mindful-cleaning',
+    'DTSTAMP:' + Utilities.formatDate(new Date(), 'UTC', "yyyyMMdd'T'HHmmss'Z'"),
+    'DTSTART:' + stamp(start),
+    'DTEND:' + stamp(end),
+    'SUMMARY:' + text(title),
+    'LOCATION:' + text(r.address || r.area || ''),
+    'DESCRIPTION:' + text(notes),
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + text(title), 'TRIGGER:-P1D', 'END:VALARM',
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + text(title), 'TRIGGER:-PT1H', 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR'
+  ];
+  // Calendar files wrap long lines at 75 characters, continuing with a space.
+  return lines.map(function (line) { return line.match(/.{1,73}/g).join('\r\n '); }).join('\r\n');
 }
 
 // Compares against the MANAGER_PASSCODE script property, and locks the page for

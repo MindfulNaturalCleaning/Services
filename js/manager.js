@@ -196,55 +196,37 @@
     return 'https://calendar.google.com/calendar/render?' + q.toString();
   }
 
-  // A calendar file with reminders the day before and an hour before. Times are
-  // left without a time zone so the phone reads them as local time.
-  function icsText(r, which) {
-    const e = eventParts(r, which);
-    const text = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
-    const now = new Date();
-    const utc = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}00Z`;
-    const lines = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mindful Natural Cleaning//Manager//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-      'BEGIN:VEVENT',
-      `UID:${r.id}-${which}-${stamp(e.start)}@mindful-cleaning`,
-      `DTSTAMP:${utc}`,
-      `DTSTART:${stamp(e.start)}`,
-      `DTEND:${stamp(e.end)}`,
-      `SUMMARY:${text(e.title)}`,
-      `LOCATION:${text(e.location)}`,
-      `DESCRIPTION:${text(e.notes)}`,
-      'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${text(e.title)}`, 'TRIGGER:-P1D', 'END:VALARM',
-      'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${text(e.title)}`, 'TRIGGER:-PT1H', 'END:VALARM',
-      'END:VEVENT', 'END:VCALENDAR'
-    ];
-    // Calendar files wrap long lines at 75 characters, continuing with a space.
-    return lines.map((line) => line.match(/.{1,73}/g).join('\r\n ')).join('\r\n');
-  }
-
-  function addToCalendar(r, which, kind) {
+  // Google Calendar takes the event in its web address. Apple's calendar (and
+  // Outlook) need a calendar file, which the Google script serves from a
+  // one-time link so phones treat it as a real calendar file.
+  async function addToCalendar(r, which, kind, button) {
     if (kind === 'google') {
       window.open(googleCalendarUrl(r, which), '_blank', 'noopener');
-    } else if (isApple()) {
-      // iPhone and iPad open Apple's "Add to Calendar" screen for this.
-      location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsText(r, which));
-    } else {
-      const url = URL.createObjectURL(new Blob([icsText(r, which)], { type: 'text/calendar' }));
-      const a = Object.assign(document.createElement('a'), { href: url, download: `${which}-${r.name.replace(/[^\w]+/g, '-').toLowerCase()}.ics` });
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      return;
     }
+    const label = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Opening…';
+    try {
+      const { code } = await api('calendar', { id: r.id, which });
+      location.href = `${CFG.scriptUrl}?ics=${encodeURIComponent(code)}`;
+    } catch (err) {
+      note(err.message, true);
+    }
+    setTimeout(() => { button.disabled = false; button.textContent = label; }, 1500);
   }
 
   function calendarButtons(r, which) {
     const when = which === 'inspection' ? r.inspectionAt : r.jobAt;
     if (!parseWhen(when)) return `<span class="mgr-hint">Add the ${which === 'inspection' ? 'inspection' : 'job'} date to put it on the calendar.</span>`;
     const label = which === 'inspection' ? 'Add inspection to calendar' : 'Add job to calendar';
-    if (isApple()) return `<button type="button" class="btn btn--primary" data-cal="ics" data-which="${which}">${label}</button>`;
+    if (isApple()) {
+      return `<button type="button" class="btn btn--primary" data-cal="ics" data-which="${which}">${label}</button>` +
+        `<button type="button" class="btn btn--ghost" data-cal="google" data-which="${which}">Google Calendar</button>`;
+    }
     if (isAndroid()) return `<button type="button" class="btn btn--primary" data-cal="google" data-which="${which}">${label}</button>`;
     return `<button type="button" class="btn btn--primary" data-cal="google" data-which="${which}">${label} (Google)</button>` +
-      `<button type="button" class="btn btn--ghost" data-cal="ics" data-which="${which}">Apple / Outlook (.ics)</button>`;
+      `<button type="button" class="btn btn--ghost" data-cal="ics" data-which="${which}">Apple / Outlook</button>`;
   }
 
   /* ---------- forms ---------- */
@@ -364,8 +346,9 @@
         </label>
         <div class="mgr-card__body">
           <span class="mgr-stage mgr-stage--job">Job</span>
-          <h2>${esc(r.name)}${r.quote ? ` <span class="mgr-quote">${esc(r.quote)}</span>` : ''}</h2>
+          <h2>${esc(r.name)}</h2>
           ${whenPill(r.jobAt, ` · ${esc(r.jobHours)} h`, 'No job date yet')}
+          <p class="mgr-price${r.quote ? '' : ' is-missing'}">Quote: <strong>${r.quote ? esc(r.quote) : 'not entered – tap Edit to add it'}</strong></p>
           ${addressLine(r)}
           <p class="mgr-meta">${contactLine(r)}</p>
           <p class="mgr-meta">${jobLine(r)}</p>
@@ -439,7 +422,7 @@
     const r = byId(cardEl.dataset.id);
     if (!r) return;
 
-    if (el.dataset.cal) return addToCalendar(r, el.dataset.which, el.dataset.cal);
+    if (el.dataset.cal) return addToCalendar(r, el.dataset.which, el.dataset.cal, el);
     if ('cancel' in el.dataset) { openForm = null; return render(); }
     if (el.dataset.open) {
       openForm = { id: r.id, kind: el.dataset.open };
