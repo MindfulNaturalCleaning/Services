@@ -49,6 +49,13 @@ Each request moves through four tabs:
    deleted. Deleting removes the row from the sheet for good (it asks first);
    only finished and closed requests can be deleted.
 
+**Overview** shows how the business is doing for a chosen period (this month, last
+3 months, this year, all time, or since a date): money earned from finished jobs
+(adding up their quotes), jobs finished, average job, the share of requests won,
+work booked but not yet done, earnings by month, and the most common locations,
+services, home or business, and how often. It is worked out on the page from the
+same data, so it needs nothing extra in the script.
+
 Inspections and jobs each have an **Add to calendar** button so the phone
 reminds the manager: Apple's calendar on iPhone (with reminders a day and an hour
 before), Google Calendar on Android, and both on a computer. Any request can be

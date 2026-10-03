@@ -429,7 +429,141 @@
 
   const emptyState = (title, text) => `<div class="empty leaf"><h3>${title}</h3><p>${text}</p></div>`;
 
+  /* ---------- overview ---------- */
+
+  // Which finished jobs count: by job date (or received date if the job had none).
+  let period = 'year';
+  let since = '';
+  const PERIODS = [['month', 'This month'], ['quarter', 'Last 3 months'], ['year', 'This year'], ['all', 'All time']];
+
+  function periodStart() {
+    const now = new Date();
+    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+    if (period === 'quarter') return new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    if (period === 'year') return new Date(now.getFullYear(), 0, 1);
+    if (period === 'since' && since) return new Date(since + 'T00:00');
+    return null;
+  }
+
+  // "$1,250.50", "180", "$180-$200" → the first amount written, or null.
+  const amount = (quote) => {
+    const m = String(quote || '').match(/\d[\d,]*(?:\.\d{1,2})?/);
+    return m ? Number(m[0].replace(/,/g, '')) : null;
+  };
+  const money = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: n % 1 ? 2 : 0 });
+
+  // Town for "most common location": the area chosen on the form, or the town
+  // part of the address ("12 Oak St, Zachary, LA 70791" → "Zachary").
+  const placeOf = (r) => {
+    if (r.area) return r.area.replace(/ and surrounding areas?/i, '');
+    const parts = String(r.address || '').split(',').map((s) => s.trim()).filter(Boolean);
+    return parts.length >= 2 ? parts[1].replace(/\s+[A-Z]{2}(\s+\d{5}(-\d{4})?)?$/, '') : 'Not given';
+  };
+
+  const tally = (list, keyOf) => {
+    const counts = new Map();
+    list.forEach((r) => { const k = keyOf(r) || 'Not given'; counts.set(k, (counts.get(k) || 0) + 1); });
+    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  };
+
+  function rankedBars(title, rows, unit) {
+    if (!rows.length) return '';
+    const top = rows.slice(0, 5);
+    const rest = rows.slice(5).reduce((sum, [, n]) => sum + n, 0);
+    if (rest) top.push(['Everything else', rest]);
+    const max = Math.max(...top.map(([, n]) => n));
+    return `<section class="ov-panel leaf"><h3>${title}</h3><ol class="ov-bars">${top.map(([label, n]) => `
+      <li title="${esc(label)}: ${n} ${unit}${n === 1 ? '' : 's'}">
+        <span class="ov-bars__label">${esc(label)}</span>
+        <span class="ov-bars__track"><span class="ov-bars__fill" style="width:${Math.max(4, (n / max) * 100)}%"></span></span>
+        <span class="ov-bars__value">${n}</span>
+      </li>`).join('')}</ol></section>`;
+  }
+
+  function monthChart(jobs) {
+    if (!jobs.length) return '';
+    const byMonth = new Map();
+    jobs.forEach((j) => {
+      const key = `${j.date.getFullYear()}-${pad(j.date.getMonth() + 1)}`;
+      const m = byMonth.get(key) || { earned: 0, count: 0 };
+      m.earned += j.price || 0;
+      m.count += 1;
+      byMonth.set(key, m);
+    });
+    // Every month from the first job to the last, up to the latest 12, including empty ones.
+    const keys = [...byMonth.keys()].sort();
+    const [fy, fm] = keys[0].split('-').map(Number);
+    const [ly, lm] = keys[keys.length - 1].split('-').map(Number);
+    const months = [];
+    for (let y = fy, m = fm; y < ly || (y === ly && m <= lm); m === 12 ? (y++, m = 1) : m++) months.push(`${y}-${pad(m)}`);
+    const shown = months.slice(-12);
+    const max = Math.max(1, ...shown.map((k) => (byMonth.get(k) || {}).earned || 0));
+    const label = (k) => new Date(`${k}-01T00:00`).toLocaleDateString('en-US', { month: 'short', year: shown.length > 6 || fy !== ly ? '2-digit' : undefined });
+    const cols = shown.map((k) => {
+      const m = byMonth.get(k) || { earned: 0, count: 0 };
+      const tip = `${new Date(`${k}-01T00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}: ${money(m.earned)} from ${m.count} job${m.count === 1 ? '' : 's'}`;
+      return `<li tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(tip)}">
+        <span class="ov-cols__bar" style="height:${m.earned ? Math.max(3, (m.earned / max) * 100) : 0}%"></span>
+        <span class="ov-cols__label">${esc(label(k))}</span></li>`;
+    }).join('');
+    const rows = shown.map((k) => { const m = byMonth.get(k) || { earned: 0, count: 0 }; return `<tr><td>${esc(new Date(`${k}-01T00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }))}</td><td>${money(m.earned)}</td><td>${m.count}</td></tr>`; }).join('');
+    return `<section class="ov-panel ov-panel--wide leaf">
+      <h3>Earned by month</h3>
+      <div class="ov-cols-wrap"><span class="ov-cols__max">${money(max)}</span><ol class="ov-cols">${cols}</ol><p class="ov-tip" role="status" hidden></p></div>
+      <details class="ov-table"><summary>Show as a table</summary>
+        <table><thead><tr><th>Month</th><th>Earned</th><th>Jobs</th></tr></thead><tbody>${rows}</tbody></table>
+      </details>
+    </section>`;
+  }
+
+  function overviewHtml() {
+    const start = periodStart();
+    const inPeriod = (d) => !start || (d && d >= start);
+    const dated = (r) => parseWhen(r.jobAt) || (r.received ? new Date(r.received) : null);
+
+    const jobs = requests.filter((r) => r.status === 'Done').map((r) => ({ ...r, date: dated(r), price: amount(r.quote) })).filter((j) => j.date && inPeriod(j.date));
+    const priced = jobs.filter((j) => j.price !== null);
+    const earned = priced.reduce((sum, j) => sum + j.price, 0);
+    const received = requests.filter((r) => r.received && inPeriod(new Date(r.received)));
+    const decided = received.filter((r) => ['Job', 'Done', 'Closed'].includes(r.status));
+    const won = decided.filter((r) => r.status !== 'Closed');
+    const customerKey = (j) => (j.phone || '').replace(/\D/g, '') || j.name.trim().toLowerCase();
+    const repeat = tally(jobs, customerKey).filter(([, n]) => n > 1).length;
+    const upcoming = requests.filter((r) => r.status === 'Job').map((r) => amount(r.quote)).filter((n) => n !== null).reduce((a, b) => a + b, 0);
+
+    const chips = PERIODS.map(([key, label]) => `<button type="button" class="ov-chip${period === key ? ' is-on' : ''}" data-period="${key}">${label}</button>`).join('');
+    const tile = (label, value, sub) => `<div class="ov-tile"><span>${label}</span><strong>${value}</strong>${sub ? `<small>${sub}</small>` : ''}</div>`;
+
+    return `<div class="ov">
+      <div class="ov-filters">
+        ${chips}
+        <label class="ov-since${period === 'since' ? ' is-on' : ''}">Since <input type="date" value="${esc(since)}" data-since></label>
+      </div>
+      <div class="ov-tiles">
+        ${tile('Earned', money(earned), priced.length < jobs.length ? `${jobs.length - priced.length} job${jobs.length - priced.length === 1 ? '' : 's'} without a price` : 'from finished jobs')}
+        ${tile('Jobs finished', jobs.length, repeat ? `${repeat} repeat customer${repeat === 1 ? '' : 's'}` : '')}
+        ${tile('Average job', priced.length ? money(earned / priced.length) : '–', '')}
+        ${tile('Requests won', decided.length ? Math.round((won.length / decided.length) * 100) + '%' : '–', `${won.length} of ${decided.length} decided · ${received.length} received`)}
+        ${tile('Booked, not yet done', money(upcoming), 'quotes on the Jobs tab')}
+      </div>
+      ${jobs.length ? `<div class="ov-grid">
+        ${monthChart(jobs)}
+        ${rankedBars('Most common locations', tally(jobs, placeOf), 'job')}
+        ${rankedBars('Most frequent services', tally(jobs, (j) => j.service), 'job')}
+        ${rankedBars('Homes and businesses', tally(jobs, (j) => j.property), 'job')}
+        ${rankedBars('How often', tally(jobs, (j) => j.frequency), 'job')}
+      </div>` : emptyState('No finished jobs in this period', 'Tick jobs as done on the Jobs tab and they will be counted here. Try a longer period above.')}
+      <p class="ov-foot">Counts jobs marked done, by their job date. Earnings add up the quote on each job; a quote like “$180–$200” counts as $180. Requests won: of the requests received in this period that have been decided, the share that became jobs.</p>
+    </div>`;
+  }
+
   function render() {
+    if (tab === 'Overview') {
+      ['New', 'Inspection', 'Job'].forEach((s) => { $(`[data-count="${s}"]`).textContent = requests.filter((r) => r.status === s).length; });
+      $$('.mgr-tabs button').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === tab));
+      $('#list').innerHTML = overviewHtml();
+      return;
+    }
     const of = (status) => requests.filter((r) => r.status === status);
     const lists = {
       New: of('New'),
@@ -504,7 +638,32 @@
     }
   });
 
+  // Overview: period buttons, the "since" date, and month tooltips.
+  $('#list').addEventListener('click', (event) => {
+    const chip = event.target.closest('[data-period]');
+    if (!chip) return;
+    period = chip.dataset.period;
+    since = '';
+    render();
+  });
+  const showTip = (event) => {
+    const col = event.target.closest('[data-tip]');
+    const tip = $('.ov-tip');
+    if (!tip) return;
+    tip.hidden = !col;
+    if (col) tip.textContent = col.dataset.tip;
+  };
+  $('#list').addEventListener('mouseover', showTip);
+  $('#list').addEventListener('focusin', showTip);
+  $('#list').addEventListener('mouseleave', () => { const tip = $('.ov-tip'); if (tip) tip.hidden = true; });
+
   $('#list').addEventListener('change', (event) => {
+    if ('since' in event.target.dataset) {
+      since = event.target.value;
+      period = since ? 'since' : 'all';
+      render();
+      return;
+    }
     if (!('done' in event.target.dataset)) return;
     const cardEl = event.target.closest('[data-id]');
     const r = byId(cardEl.dataset.id);
