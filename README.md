@@ -45,7 +45,9 @@ Each request moves through four tabs:
 3. **Jobs:** booked cleanings, soonest first. Tick the box when the job is done.
    **Add a job** at the top adds one by hand (for example a customer who phoned);
    it goes straight into Jobs and no email is sent.
-4. **Finished:** done jobs and closed requests, each of which can be reopened.
+4. **Finished:** done jobs and closed requests, each of which can be reopened or
+   deleted. Deleting removes the row from the sheet for good (it asks first);
+   only finished and closed requests can be deleted.
 
 Inspections and jobs each have an **Add to calendar** button so the phone
 reminds the manager: Apple's calendar on iPhone (with reminders a day and an hour

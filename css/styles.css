@@ -71,6 +71,8 @@ svg { width: 1.15em; height: 1.15em; flex: none; }
 .btn--primary:hover { background: var(--moss); }
 .btn--ghost { border-color: var(--forest); color: var(--forest); }
 .btn--ghost:hover { background: var(--forest); color: var(--white); }
+.btn--danger { border-color: #e4c3bd; color: var(--danger); background: transparent; }
+.btn--danger:hover { background: var(--danger); border-color: var(--danger); color: var(--white); }
 .btn--light { background: var(--cream); color: var(--forest); }
 .btn--light:hover { background: var(--white); }
 .btn--outline-light { border-color: rgba(255, 255, 255, .6); color: var(--white); }

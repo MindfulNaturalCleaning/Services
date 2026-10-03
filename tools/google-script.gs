@@ -175,6 +175,7 @@ function managerAction(p) {
     case 'list': return { ok: true, requests: listRequests() };
     case 'save': return saveRequestChanges(p);
     case 'create': return createJob(p);
+    case 'delete': return deleteFinished(p.id);
     case 'calendar': return prepareCalendarFile(p.id, p.which);
     default: return { ok: false, error: 'Unknown action.' };
   }
@@ -365,6 +366,21 @@ function createJob(p) {
     tab.appendRow(REQUESTS.headings.map(function (h) { return h in record ? record[h] : ''; }));
   });
   return { ok: true, id: id };
+}
+
+// Removes a request's row from the sheet for good. Only finished ones (Done or
+// Closed) can be deleted, so an active job can't be lost by mistake.
+function deleteFinished(id) {
+  if (!id) return { ok: false, error: 'No request given.' };
+  return withLock(function () {
+    var tab = requestsTab();
+    var row = findRow(tab, at('ID'), String(id));
+    if (!row) return { ok: false, error: 'That request was not found. It may already have been deleted.' };
+    var status = String(tab.getRange(row, at('Status')).getValue());
+    if (status !== 'Done' && status !== 'Closed') return { ok: false, error: 'Only finished or closed requests can be deleted.' };
+    tab.deleteRow(row);
+    return { ok: true };
+  });
 }
 
 // "2026-10-08T09:00" → a Date in the script's time zone; "" → "" (cleared);

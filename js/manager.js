@@ -80,6 +80,20 @@
     }
   }
 
+  async function remove(cardEl, r) {
+    $$('button', cardEl).forEach((el) => { el.disabled = true; });
+    cardEl.classList.add('is-busy');
+    try {
+      await api('delete', { id: r.id });
+      await load(true);
+      note(`${r.name} deleted.`);
+    } catch (err) {
+      cardEl.classList.remove('is-busy');
+      $$('button', cardEl).forEach((el) => { el.disabled = false; });
+      note(err.message, true);
+    }
+  }
+
   async function createJob(cardEl, fields) {
     $$('button, input, select, textarea', cardEl).forEach((el) => { el.disabled = true; });
     cardEl.classList.add('is-busy');
@@ -409,6 +423,7 @@
         ${done
           ? '<button type="button" class="btn btn--ghost" data-move="Job">Move back to jobs</button>'
           : `<button type="button" class="btn btn--ghost" data-move="${r.jobAt || r.quote ? 'Job' : r.inspectionAt ? 'Inspection' : 'New'}">Reopen</button>`}
+        <button type="button" class="btn btn--danger" data-delete>Delete</button>
       </div>`);
   }
 
@@ -458,7 +473,7 @@
   const byId = (id) => requests.find((r) => r.id === id);
 
   $('#list').addEventListener('click', (event) => {
-    const el = event.target.closest('[data-open], [data-cal], [data-cancel], [data-close], [data-move], [data-add-job]');
+    const el = event.target.closest('[data-open], [data-cal], [data-cancel], [data-close], [data-move], [data-add-job], [data-delete]');
     if (!el) return;
     if ('cancel' in el.dataset) { openForm = null; return render(); }
     if ('addJob' in el.dataset) {
@@ -484,6 +499,9 @@
       return;
     }
     if (el.dataset.move) save(cardEl, { status: el.dataset.move }, `${r.name} moved back.`);
+    if ('delete' in el.dataset && confirm(`Permanently delete ${r.name}? This removes it from the sheet and can't be undone.`)) {
+      remove(cardEl, r);
+    }
   });
 
   $('#list').addEventListener('change', (event) => {
