@@ -34,13 +34,21 @@ the sheet's **Requests** tab. The manager handles them on the private page
 which is not linked from the public site. On a phone it can be added to the
 home screen.
 
-- **New:** each request with Accept and Deny. Accept asks for the date and time,
-  length, address and job details.
-- **To-do:** accepted jobs, soonest first, with an **Add to calendar** button
-  (Apple's calendar on iPhone, Google Calendar on Android, both on a computer;
-  the iPhone version includes reminders a day and an hour before), Edit, and a
-  checkbox to mark the job done.
-- **Finished:** done and denied requests, each of which can be moved back.
+Each request moves through four tabs:
+
+1. **New:** just arrived. The manager calls or emails the customer, then taps
+   **Book inspection** (address, notes from the call, inspection date and time).
+   **Skip to job** is for jobs quoted without a visit; **Close** turns it down.
+2. **Inspections:** visits to see the place and give a quote, soonest first.
+   After quoting, **Quote given** records the price and quote notes and books
+   the cleaning date and length.
+3. **Jobs:** booked cleanings, soonest first. Tick the box when the job is done.
+4. **Finished:** done jobs and closed requests, each of which can be reopened.
+
+Inspections and jobs each have an **Add to calendar** button so the phone
+reminds the manager: Apple's calendar on iPhone (with reminders a day and an hour
+before), Google Calendar on Android, and both on a computer. Any request can be
+edited or closed at any stage.
 
 The page asks for a passcode, kept in the script's Project Settings › Script
 Properties as `MANAGER_PASSCODE`. Change it there at any time; anyone signed in

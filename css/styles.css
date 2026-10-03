@@ -377,6 +377,10 @@ svg { width: 1.15em; height: 1.15em; flex: none; }
 .mgr-tag--denied { background: #ececec; color: #666; }
 
 .mgr-form { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line); }
+.mgr-form h3 { font-size: 1.05rem; margin-bottom: .75rem; }
+.mgr-stage { display: inline-block; margin-bottom: .3rem; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #7a5410; }
+.mgr-stage--job { color: var(--moss); }
+.mgr-quote { display: inline-block; vertical-align: middle; margin-left: .3rem; padding: .1rem .6rem; border-radius: 999px; background: var(--honey); color: var(--forest); font: 800 .85rem var(--body); }
 .mgr-form label { display: block; font-weight: 600; font-size: .9rem; color: var(--forest); }
 .mgr-form input, .mgr-form select, .mgr-form textarea {
   width: 100%; margin-top: .35rem; padding: .7rem .85rem; font: 400 1rem var(--body); color: var(--ink);

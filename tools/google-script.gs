@@ -6,9 +6,10 @@
  *
  *   1. Quote requests: saves each one in the "Requests" tab and emails it to the
  *      address under the sheet's "Email" heading.
- *   2. Manager page: lets the passcode-protected manager.html page list requests
- *      and accept, deny, schedule and finish them. The passcode is kept in
- *      Project Settings > Script Properties as MANAGER_PASSCODE.
+ *   2. Manager page: lets the passcode-protected manager.html page move each
+ *      request through New > Inspection > Job > Done (or Closed), with the
+ *      address, notes, inspection time, quote and job time. The passcode is kept
+ *      in Project Settings > Script Properties as MANAGER_PASSCODE.
  *   3. New reviews: saves each one in the "Reviews" tab, hidden until the Show
  *      box on that row is ticked. Can also email a notice (off by default).
  *   4. Showing reviews: gives the website the rows whose Show box is ticked.
@@ -26,10 +27,18 @@ var EMAIL_ON_NEW_REVIEW = false;
 // The Requests tab is the manager page's storage. Columns are found by heading.
 var REQUESTS = {
   name: 'Requests',
-  headings: ['Status', 'Received', 'Name', 'Phone', 'Email', 'Area', 'Service', 'Type of space', 'How often', 'Customer message', 'Scheduled for', 'Hours', 'Address', 'Job details', 'ID'],
-  widths: [95, 150, 160, 125, 210, 180, 150, 115, 150, 300, 160, 60, 240, 300, 80]
+  headings: ['Status', 'Received', 'Name', 'Phone', 'Email', 'Area', 'Service', 'Type of space', 'How often', 'Customer message', 'Address', 'Notes', 'Inspection at', 'Quote', 'Quote notes', 'Job at', 'Job hours', 'ID'],
+  widths: [95, 150, 160, 125, 210, 180, 150, 115, 150, 300, 240, 300, 160, 90, 300, 160, 75, 80]
 };
-var STATUSES = ['New', 'Accepted', 'Denied', 'Done'];
+// New: just arrived. Inspection: visit booked to see the place and quote.
+// Job: quote given, cleaning booked. Done: finished. Closed: not going ahead.
+var STATUSES = ['New', 'Inspection', 'Job', 'Done', 'Closed'];
+var DATE_COLUMNS = ['Received', 'Inspection at', 'Job at'];
+var WRAPPED_COLUMNS = ['Customer message', 'Address', 'Notes', 'Quote notes'];
+
+// What the manager page may change, with the most characters allowed for each.
+// Dates are handled separately.
+var EDITABLE = { address: ['Address', 300], notes: ['Notes', 2000], quote: ['Quote', 60], quoteNotes: ['Quote notes', 2000] };
 
 // Wrong passcodes allowed in a 15-minute window before the manager page locks.
 var MAX_WRONG_PASSCODES = 10;
@@ -162,11 +171,7 @@ function managerAction(p) {
   switch (p.action) {
     case 'login': return { ok: true };
     case 'list': return { ok: true, requests: listRequests() };
-    case 'accept': return updateRequest(p.id, 'Accepted', p, true);
-    case 'update': return updateRequest(p.id, null, p, true);
-    case 'deny': return updateRequest(p.id, 'Denied', p, false);
-    case 'done': return updateRequest(p.id, 'Done', p, false);
-    case 'reopen': return updateRequest(p.id, p.to === 'Accepted' ? 'Accepted' : 'New', p, false);
+    case 'save': return saveRequestChanges(p);
     default: return { ok: false, error: 'Unknown action.' };
   }
 }
@@ -193,6 +198,8 @@ function listRequests() {
   if (!tab || tab.getLastRow() < 2 || !hasCurrentLayout(tab)) return [];
   var rows = tab.getRange(2, 1, tab.getLastRow() - 1, REQUESTS.headings.length).getValues();
   var tz = Session.getScriptTimeZone();
+  // Local date and time as the manager entered it, e.g. 2026-10-08T09:00.
+  var local = function (d) { return d instanceof Date ? Utilities.formatDate(d, tz, "yyyy-MM-dd'T'HH:mm") : ''; };
   var list = [];
   for (var i = rows.length - 1; i >= 0 && list.length < 500; i--) {
     var r = {};
@@ -210,40 +217,57 @@ function listRequests() {
       property: String(r['Type of space']),
       frequency: String(r['How often']),
       message: String(r['Customer message']),
-      // Local date and time as the manager entered it, e.g. 2026-10-08T09:00.
-      when: r['Scheduled for'] instanceof Date ? Utilities.formatDate(r['Scheduled for'], tz, "yyyy-MM-dd'T'HH:mm") : '',
-      hours: Number(r['Hours']) || 2,
       address: String(r['Address']),
-      details: String(r['Job details'])
+      notes: String(r['Notes']),
+      inspectionAt: local(r['Inspection at']),
+      quote: String(r['Quote']),
+      quoteNotes: String(r['Quote notes']),
+      jobAt: local(r['Job at']),
+      jobHours: Number(r['Job hours']) || 2
     });
   }
   return list;
 }
 
-// Changes one request. withDetails also saves the schedule, address and notes
-// sent from the page.
-function updateRequest(id, status, p, withDetails) {
-  if (!id) return { ok: false, error: 'No request given.' };
-  var when = null;
-  if (withDetails && p.when) {
-    var m = String(p.when).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
-    if (!m) return { ok: false, error: 'That date and time could not be read.' };
-    when = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
-  }
+// Saves whatever the page sent for one request: any of the text fields, the two
+// dates, the job length, and optionally a new status. Fields not sent are left alone.
+function saveRequestChanges(p) {
+  if (!p.id) return { ok: false, error: 'No request given.' };
+  if (p.status && STATUSES.indexOf(p.status) < 0) return { ok: false, error: 'Unknown status.' };
+
+  var dates = {};
+  var bad = ['inspectionAt', 'jobAt'].filter(function (key) {
+    if (!(key in p)) return false;
+    var parsed = localDate(p[key]);
+    if (parsed === null) return true;
+    dates[key] = parsed;
+    return false;
+  });
+  if (bad.length) return { ok: false, error: 'That date and time could not be read.' };
 
   return withLock(function () {
     var tab = requestsTab();
-    var row = findRow(tab, at('ID'), String(id));
+    var row = findRow(tab, at('ID'), String(p.id));
     if (!row) return { ok: false, error: 'That request was not found. It may have been deleted from the sheet.' };
-    if (status) tab.getRange(row, at('Status')).setValue(status);
-    if (withDetails) {
-      tab.getRange(row, at('Scheduled for')).setValue(when || '');
-      tab.getRange(row, at('Hours')).setValue(Math.min(Math.max(Number(p.hours) || 2, 0.5), 12));
-      tab.getRange(row, at('Address')).setValue(plainText(p.address, 300));
-      tab.getRange(row, at('Job details')).setValue(plainText(p.details, 2000));
-    }
+    var set = function (heading, value) { tab.getRange(row, at(heading)).setValue(value); };
+
+    Object.keys(EDITABLE).forEach(function (key) {
+      if (key in p) set(EDITABLE[key][0], plainText(p[key], EDITABLE[key][1]));
+    });
+    if ('inspectionAt' in dates) set('Inspection at', dates.inspectionAt);
+    if ('jobAt' in dates) set('Job at', dates.jobAt);
+    if ('jobHours' in p) set('Job hours', Math.min(Math.max(Number(p.jobHours) || 2, 0.5), 12));
+    if (p.status) set('Status', p.status);
     return { ok: true };
   });
+}
+
+// "2026-10-08T09:00" → a Date in the script's time zone; "" → "" (cleared);
+// anything else → null (not understood).
+function localDate(value) {
+  if (!value) return '';
+  var m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null;
 }
 
 /* ---------- reviews ---------- */
@@ -372,8 +396,8 @@ function styleRequestsTab(tab) {
   REQUESTS.headings.forEach(function (heading, i) {
     var body = tab.getRange(2, i + 1, rows - 1, 1);
     tab.setColumnWidth(i + 1, REQUESTS.widths[i]);
-    if (heading === 'Received' || heading === 'Scheduled for') body.setNumberFormat('mmm d, yyyy  h:mm am/pm').setHorizontalAlignment('left');
-    if (heading === 'Customer message' || heading === 'Address' || heading === 'Job details') body.setWrap(true);
+    if (DATE_COLUMNS.indexOf(heading) >= 0) body.setNumberFormat('mmm d, yyyy  h:mm am/pm').setHorizontalAlignment('left');
+    if (WRAPPED_COLUMNS.indexOf(heading) >= 0) body.setWrap(true);
     if (heading === 'Status') body.setFontWeight('bold');
     if (heading === 'Phone') body.setNumberFormat('@');
   });
