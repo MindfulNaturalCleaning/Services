@@ -380,6 +380,7 @@ svg { width: 1.15em; height: 1.15em; flex: none; }
 .mgr-form h3 { font-size: 1.05rem; margin-bottom: .75rem; }
 .mgr-stage { display: inline-block; margin-bottom: .3rem; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #7a5410; }
 .mgr-stage--job { color: var(--moss); }
+.mgr-toolbar { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
 .mgr-price { margin: 0 0 .4rem; font-size: 1.05rem; color: var(--forest); }
 .mgr-price strong { font-size: 1.25rem; }
 .mgr-price.is-missing strong { font-size: .95rem; color: #7a5410; }

@@ -174,6 +174,7 @@ function managerAction(p) {
     case 'login': return { ok: true };
     case 'list': return { ok: true, requests: listRequests() };
     case 'save': return saveRequestChanges(p);
+    case 'create': return createJob(p);
     case 'calendar': return prepareCalendarFile(p.id, p.which);
     default: return { ok: false, error: 'Unknown action.' };
   }
@@ -333,6 +334,37 @@ function saveRequestChanges(p) {
     if (p.status) set('Status', p.status);
     return { ok: true };
   });
+}
+
+// A job the manager adds by hand (for example a customer who phoned), straight
+// into Jobs. No email is sent for these.
+function createJob(p) {
+  var name = plainText(p.name, 80);
+  if (!name) return { ok: false, error: 'Enter the customer’s name.' };
+  var jobAt = localDate(p.jobAt);
+  if (jobAt === null) return { ok: false, error: 'That date and time could not be read.' };
+
+  var id = Utilities.getUuid();
+  withLock(function () {
+    var tab = requestsTab();
+    var record = {
+      'Status': 'Job',
+      'Received': new Date(),
+      'Name': name,
+      'Phone': plainText(p.phone, 30),
+      'Email': plainText(p.email, 120),
+      'Service': plainText(p.service, 80),
+      'Address': plainText(p.address, 300),
+      'Notes': plainText(p.notes, 2000),
+      'Quote': plainText(p.quote, 60),
+      'Quote notes': plainText(p.quoteNotes, 2000),
+      'Job at': jobAt,
+      'Job hours': Math.min(Math.max(Number(p.jobHours) || 2, 0.5), 12),
+      'ID': id
+    };
+    tab.appendRow(REQUESTS.headings.map(function (h) { return h in record ? record[h] : ''; }));
+  });
+  return { ok: true, id: id };
 }
 
 // "2026-10-08T09:00" → a Date in the script's time zone; "" → "" (cleared);

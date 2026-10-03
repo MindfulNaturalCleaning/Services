@@ -80,6 +80,21 @@
     }
   }
 
+  async function createJob(cardEl, fields) {
+    $$('button, input, select, textarea', cardEl).forEach((el) => { el.disabled = true; });
+    cardEl.classList.add('is-busy');
+    try {
+      await api('create', fields);
+      openForm = null;
+      await load(true);
+      note(`Job for ${fields.name} added.`);
+    } catch (err) {
+      cardEl.classList.remove('is-busy');
+      $$('button, input, select, textarea', cardEl).forEach((el) => { el.disabled = false; });
+      note(err.message, true);
+    }
+  }
+
   /* ---------- sign in ---------- */
 
   function showLogin(message) {
@@ -237,11 +252,27 @@
     quote: { title: 'Quote given: book the job', fields: ['quote', 'quoteNotes', 'jobAt', 'jobHours', 'address'], status: 'Job', save: 'Move to jobs' },
     skip: { title: 'Quoted without a visit: book the job', fields: ['address', 'notes', 'quote', 'quoteNotes', 'jobAt', 'jobHours'], status: 'Job', save: 'Move to jobs' },
     editInspection: { title: 'Edit inspection', fields: ['address', 'notes', 'inspectionAt'], save: 'Save changes' },
-    editJob: { title: 'Edit job', fields: ['address', 'notes', 'quote', 'quoteNotes', 'jobAt', 'jobHours'], save: 'Save changes' }
+    editJob: { title: 'Edit job', fields: ['address', 'notes', 'quote', 'quoteNotes', 'jobAt', 'jobHours'], save: 'Save changes' },
+    create: { title: 'Add a job', fields: ['name', 'phone', 'email', 'service', 'address', 'notes', 'quote', 'quoteNotes', 'jobAt', 'jobHours'], save: 'Add job' }
+  };
+  const NEW_JOB = '__new';
+
+  // The services listed on the website, for suggestions when adding a job.
+  const knownServices = () => {
+    try { return (JSON.parse(localStorage.getItem('mncs-data-v1')) || {}).services || []; } catch (e) { return []; }
   };
 
   function field(name, r) {
     switch (name) {
+      case 'name':
+        return `<label>Customer name <input type="text" name="name" maxlength="80" required value="${esc(r.name)}" autocomplete="off"></label>`;
+      case 'phone':
+        return `<label>Phone <input type="tel" name="phone" maxlength="30" value="${esc(r.phone)}" autocomplete="off"></label>`;
+      case 'email':
+        return `<label>Email <input type="email" name="email" maxlength="120" value="${esc(r.email)}" autocomplete="off"></label>`;
+      case 'service':
+        return `<label>Service <input type="text" name="service" maxlength="80" value="${esc(r.service)}" list="service-options" autocomplete="off">
+          <datalist id="service-options">${knownServices().map((s) => `<option value="${esc(s)}">`).join('')}</datalist></label>`;
       case 'address':
         return `<label class="form__full">Address <input type="text" name="address" maxlength="300" value="${esc(r.address)}" autocomplete="off"></label>`;
       case 'notes':
@@ -401,7 +432,18 @@
       Finished: [finishedCard, 'Nothing finished yet', 'Completed jobs and closed requests are kept here.']
     };
     const [render1, emptyTitle, emptyText] = views[tab];
-    $('#list').innerHTML = lists[tab].length ? lists[tab].map(render1).join('') : emptyState(emptyTitle, emptyText);
+    const cards = lists[tab].length ? lists[tab].map(render1).join('') : emptyState(emptyTitle, emptyText);
+    $('#list').innerHTML = (tab === 'Job' ? addJobArea() : '') + cards;
+  }
+
+  // On the Jobs tab: an "Add a job" button, or the form for it once tapped.
+  function addJobArea() {
+    if (openForm && openForm.id === NEW_JOB) {
+      const blank = { id: NEW_JOB, name: '', phone: '', email: '', service: '', address: '', notes: '', quote: '', quoteNotes: '', jobAt: '', jobHours: 2 };
+      return `<article class="mgr-card leaf is-open" data-id="${NEW_JOB}">${formHtml(blank, 'create')}</article>`;
+    }
+    return `<div class="mgr-toolbar"><button type="button" class="btn btn--primary" data-add-job>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add a job</button></div>`;
   }
 
   $$('.mgr-tabs button').forEach((b) => b.addEventListener('click', () => {
@@ -416,14 +458,21 @@
   const byId = (id) => requests.find((r) => r.id === id);
 
   $('#list').addEventListener('click', (event) => {
-    const el = event.target.closest('[data-open], [data-cal], [data-cancel], [data-close], [data-move]');
+    const el = event.target.closest('[data-open], [data-cal], [data-cancel], [data-close], [data-move], [data-add-job]');
     if (!el) return;
+    if ('cancel' in el.dataset) { openForm = null; return render(); }
+    if ('addJob' in el.dataset) {
+      openForm = { id: NEW_JOB, kind: 'create' };
+      note('');
+      render();
+      $(`[data-id="${NEW_JOB}"] input[name="name"]`).focus();
+      return;
+    }
     const cardEl = el.closest('[data-id]');
     const r = byId(cardEl.dataset.id);
     if (!r) return;
 
     if (el.dataset.cal) return addToCalendar(r, el.dataset.which, el.dataset.cal, el);
-    if ('cancel' in el.dataset) { openForm = null; return render(); }
     if (el.dataset.open) {
       openForm = { id: r.id, kind: el.dataset.open };
       render();
@@ -449,9 +498,10 @@
     const form = event.target;
     const spec = FORMS[form.dataset.kind];
     const cardEl = form.closest('[data-id]');
-    const r = byId(cardEl.dataset.id);
     const changes = {};
     spec.fields.forEach((f) => { changes[f] = form.elements[f].value; });
+    if (form.dataset.kind === 'create') return createJob(cardEl, changes);
+    const r = byId(cardEl.dataset.id);
     if (spec.status) changes.status = spec.status;
     const moved = { Inspection: 'moved to Inspections', Job: 'moved to Jobs' }[spec.status];
     save(cardEl, changes, moved ? `${r.name} ${moved}.` : 'Saved.');

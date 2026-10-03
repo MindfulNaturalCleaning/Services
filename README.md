@@ -43,6 +43,8 @@ Each request moves through four tabs:
    After quoting, **Quote given** records the price and quote notes and books
    the cleaning date and length.
 3. **Jobs:** booked cleanings, soonest first. Tick the box when the job is done.
+   **Add a job** at the top adds one by hand (for example a customer who phoned);
+   it goes straight into Jobs and no email is sent.
 4. **Finished:** done jobs and closed requests, each of which can be reopened.
 
 Inspections and jobs each have an **Add to calendar** button so the phone
